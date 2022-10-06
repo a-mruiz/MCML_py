@@ -1,0 +1,7 @@
+The coordinate systems used always consider z=0 at the start of the tissue layer, this means that the lightsources will have negative z coordinate !!!!
+
+TODO:
+    -Implement this method in a HS manner
+    -Implement this method for multiple lightsources
+    -Implement this method for rounded geometries of skin
+    -Implement this method for more complex geometries
