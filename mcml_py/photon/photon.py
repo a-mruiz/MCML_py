@@ -363,6 +363,8 @@ from random import gauss, random
 from ..layer import Layer
 from ..grid import WorldGrid
 from ..lights import LightSource
+from ..helpers import Position,Direction
+
 
 class Photon():
     """
@@ -381,17 +383,13 @@ class Photon():
         self.scatterings=0
         self.layer_index=0
         self.typeOfLight=lightSource.getType()
-        self.ledRadius=ledRadius
-        self.ledHeight=ledHeight
+        #self.ledRadius=ledRadius
+        #self.ledHeight=ledHeight
         self.w=1
         
         if self.typeOfLight=="laser":
-            self.x=0
-            self.y=0
-            self.z=-1
-            self.ux=0
-            self.uy=0
-            self.uz=1
+            self.position=Position(0,0,-1)
+            self.direction=Direction(0,0,1)
         elif self.typeOfLight=="led":
             """
             Some considerations are needed here: 
@@ -404,11 +402,11 @@ class Photon():
             r = ledRadius * np.sqrt(random())
             theta = random() *2*np.pi
             
-            self.x=r*np.cos(theta)
-            self.y=r*np.sin(theta)        
+            self.position.x=r*np.cos(theta)
+            self.position.y=r*np.sin(theta)        
         
             #The 'z' value is going to be fixed for now to 0, no curvature in the led surface is contempled
-            self.z=0
+            self.position.z=0
             
             #Now we need to randomly sample the incident angle of the photon (or the launching angle of the photon)
             
@@ -419,13 +417,13 @@ class Photon():
             
             
             #From cylindrical to cartesian coordinates and unitary vectors->
-            self.ux=np.sin(phi)*np.cos(theta)+np.cos(phi)*np.cos(theta)-np.sin(phi)
-            self.uy=np.sin(phi)*np.sin(theta)+np.cos(phi)*np.sin(theta)+np.cos(phi)
-            self.uz=np.cos(phi)-np.sin(phi)
+            self.direction.ux=np.sin(phi)*np.cos(theta)+np.cos(phi)*np.cos(theta)-np.sin(phi)
+            self.direction.uy=np.sin(phi)*np.sin(theta)+np.cos(phi)*np.sin(theta)+np.cos(phi)
+            self.direction.uz=np.cos(phi)-np.sin(phi)
             
-            print(self.ux)
-            print(self.uy)
-            print(self.uz)
+            print(self.direction.ux)
+            print(self.direction.uy)
+            print(self.direction.uz)
 
             
             x=self.w*np.sin(phi)*np.cos(theta)
@@ -466,7 +464,7 @@ class Photon():
             if self.typeOfLight=="laser":
                 #IMPORTANT THIS IS ONLY VALID FOR THE USE CASE OF LASER PHOTONS
                 #move the photon to the init of the tissue
-                self.z=layers[self.layer_index].init_depth
+                self.position.z=layers[self.layer_index].init_depth
             elif self.typeOfLight=="led":
                 #TODO compute the position of the photon when arriving to the tissue and the directional cosines
                 pass
@@ -478,18 +476,18 @@ class Photon():
             the photon propagation is happening. (Eq: 3.26)
             
                                   _
-                                  | (layer.ini_depth-self.z)/self.uz  ----- if self.uz<0
-                distance_boundary=| np.inf                            ----- if self.uz==0
-                                  | (layer.end_depth-self.z)/self.uz  ----- if self.uz>0
+                                  | (layer.ini_depth-self.position.z)/self.direction.uz  ----- if self.direction.uz<0
+                distance_boundary=| np.inf                            ----- if self.direction.uz==0
+                                  | (layer.end_depth-self.position.z)/self.direction.uz  ----- if self.direction.uz>0
                                   -           
             """
             
             if self.s==0:
                 self.compute_s(layers)
             
-            if self.uz<0: distance_to_boundary=(layers[self.layer_index].init_depth-self.z)/self.uz
-            elif self.uz==0: distance_to_boundary=np.inf
-            else: distance_to_boundary=(layers[self.layer_index].end_depth-self.z)/self.uz
+            if self.direction.uz<0: distance_to_boundary=(layers[self.layer_index].init_depth-self.position.z)/self.direction.uz
+            elif self.direction.uz==0: distance_to_boundary=np.inf
+            else: distance_to_boundary=(layers[self.layer_index].end_depth-self.position.z)/self.direction.uz
             
             #print(self.s)
             #print(distance_to_boundary)
@@ -504,9 +502,9 @@ class Photon():
             """
             if self.s<distance_to_boundary*layers[self.layer_index].mut:
                 #Photon does not hit the boundary, the step fits in the current tissue layer. Update the Photon location by (s/mut) and set self.s=0 to be regenerated from random.
-                self.x += self.ux * self.s/layers[self.layer_index].mut
-                self.y += self.uy * self.s/layers[self.layer_index].mut
-                self.z += self.uz * self.s/layers[self.layer_index].mut
+                self.position.x += self.direction.ux * self.s/layers[self.layer_index].mut
+                self.position.y += self.direction.uy * self.s/layers[self.layer_index].mut
+                self.position.z += self.direction.uz * self.s/layers[self.layer_index].mut
                 self.s = 0
                 """
                 Now there is a need to update the absorb and scatter properties of the tissue
@@ -522,16 +520,16 @@ class Photon():
                 
             else:
                 #Photon hits the boundary
-                self.x += self.ux * distance_to_boundary
-                self.y += self.uy * distance_to_boundary
-                self.z += self.uz * distance_to_boundary
+                self.position.x += self.direction.ux * distance_to_boundary
+                self.position.y += self.direction.uy * distance_to_boundary
+                self.position.z += self.direction.uz * distance_to_boundary
                 self.s -= distance_to_boundary*layers[self.layer_index].mut
                         
                 """
                 Now we need to compute the probability of the photon being internally reflected, depending on the angle of incidence. The value of the angle is 
                 calculated with: 
                     
-                    alpha_i=(cos(|self.uz|))⁻¹   (Eq: 3.28)
+                    alpha_i=(cos(|self.direction.uz|))⁻¹   (Eq: 3.28)
                 
                 Then, applying Snell's Law:
 
@@ -551,7 +549,7 @@ class Photon():
                 #in order to find the next layer we need to know if the photon is has a Z component going upwards or downwards
                 
                 goingUp=False
-                if self.uz < 0: #Photon is moving upwards
+                if self.direction.uz < 0: #Photon is moving upwards
                     next_layer_index = self.layer_index - 1
                     goingUp = True
                 else: #Photon is moving downwards
@@ -560,7 +558,7 @@ class Photon():
                 n_i=layers[self.layer_index].n
                 n_t=layers[next_layer_index].n
                                 
-                alpha_i=np.arccos(np.abs(self.uz))
+                alpha_i=np.arccos(np.abs(self.direction.uz))
                 alpha_c=np.arcsin(n_t/n_i)
                 
                 if n_i>n_t and alpha_i>alpha_c:
@@ -574,7 +572,7 @@ class Photon():
                     elif n_i==n_t:
                         #matched boundary
                         R_alpha_i=0
-                    elif -self.uz<1.0e-6:
+                    elif -self.direction.uz<1.0e-6:
                         R_alpha_i=1
                     else:
                         #General
@@ -590,7 +588,7 @@ class Photon():
                 rnd=random()
                 if rnd <= R_alpha_i:
                     #The photon is internally reflected, so the directional cosines must be updated by reversing the z component
-                    self.uz = -self.uz
+                    self.direction.uz = -self.direction.uz
                     #Then back to the first stage in the movements
                 else:
                     #The photon is transmitted
@@ -620,9 +618,9 @@ class Photon():
                             
                     else:
                         #Photon is transmitted to another layer
-                        self.ux=self.ux * n_i/n_t
-                        self.uy=self.uy * n_i/n_t
-                        self.uz=np.sign(self.uz)*np.cos(alpha_t)      
+                        self.direction.ux=self.direction.ux * n_i/n_t
+                        self.direction.uy=self.direction.uy * n_i/n_t
+                        self.direction.uz=np.sign(self.direction.uz)*np.cos(alpha_t)      
                 
     def compute_s(self,layers):
         """Compute the photon step size from a uniformly distributed random variable.
@@ -659,14 +657,14 @@ class Photon():
         cos_phi=np.cos(azimutal_phi)
         
         
-        if np.abs(self.uz)>0.99999:
-            self.ux=sin_theta*np.cos(azimutal_phi)
-            self.uy=sin_theta*sin_phi
-            self.uz=np.sign(self.uz)*cos_theta
+        if np.abs(self.direction.uz)>0.99999:
+            self.direction.ux=sin_theta*np.cos(azimutal_phi)
+            self.direction.uy=sin_theta*sin_phi
+            self.direction.uz=np.sign(self.direction.uz)*cos_theta
         else:
-            self.ux=sin_theta*(self.ux*self.uz*cos_phi-self.uy*sin_phi)/(np.sqrt(1-self.uz**2)) + self.ux*cos_theta
-            self.uy=sin_theta*(self.uy*self.uz*cos_phi+self.ux*sin_phi)/(np.sqrt(1-self.uz**2)) + self.uy*cos_theta
-            self.uz=-sin_theta*cos_phi*(np.sqrt(1-self.uz**2)) + self.uz*cos_theta
+            self.direction.ux=sin_theta*(self.direction.ux*self.direction.uz*cos_phi-self.direction.uy*sin_phi)/(np.sqrt(1-self.direction.uz**2)) + self.direction.ux*cos_theta
+            self.direction.uy=sin_theta*(self.direction.uy*self.direction.uz*cos_phi+self.direction.ux*sin_phi)/(np.sqrt(1-self.direction.uz**2)) + self.direction.uy*cos_theta
+            self.direction.uz=-sin_theta*cos_phi*(np.sqrt(1-self.direction.uz**2)) + self.direction.uz*cos_theta
         
         #score an scattering event happening
         self.scatterings += 1

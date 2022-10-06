@@ -5,3 +5,11 @@ TODO:
     -Implement this method for multiple lightsources
     -Implement this method for rounded geometries of skin
     -Implement this method for more complex geometries
+
+
+
+Interesting Papers:
+    -Simulating Light Diffusion in Human Brain Tissues Using Monte-Carlo Simulation and Diffusion Equation
+    -Scattering of Sculpted Light in Intact Brain Tissue, with implications for Optogenetics
+    -A Numerical Simulation of the Diffusion of Near Infrared Light Through Brain Tissue
+    -A Model of Effective Diffusion and Tortuosity in the Extracellular Space of the Brain
