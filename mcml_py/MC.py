@@ -2,7 +2,7 @@ from .photon import Photon
 from .layer import Layer
 from .grid import WorldGrid
 from .lights import LaserSource,LedSource
-
+from .helpers import Position,Direction
 from datetime import timedelta
 import time
 
